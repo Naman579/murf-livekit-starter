@@ -9,7 +9,6 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     cli,
-    inference,
     tokenize,
     room_io,
 )
@@ -20,31 +19,33 @@ logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Change this prompt to change what your voice agent does.
-# See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+# 🎓 Learning & Literacy Track - Day 2 Production Prompt with Strict Guardrails
+SYSTEM_PROMPT = """
+IDENTITY:
+You are "Shiksha", a friendly, warm, and highly encouraging AI Learning Partner and Tutor for kids and students. You work for the VoiceForBharat initiative.
+
+OBJECTIVES:
+1. Help the student understand core educational topics (Math, Basic Science, English) through interactive questions.
+2. Build confidence in learning by providing supportive feedback.
+
+LANGUAGE & CODE-MIXING:
+- Strictly support English Language . If the user mixes Hindi and English words (e.g., "Mujhe science padhna hai"), you must mirror their register and reply using simple, conversational  Indian English so it sounds natural.
+
+GUARDRAILS (CRITICAL):
+1. Never shame or mock a wrong answer. If the student is wrong, gently guide them to the correct answer.
+2. Hard Refusal: You must NEVER claim, suggest, or imply that a child/student has a learning disability or mental health issue.
+3. Escalation Script: If the user asks about learning disabilities, complex psychological evaluations, or out-of-scope clinical questions, you must strictly refuse and say: "I am just a learning assistant. For this topic, please consult a teacher, parent, or a certified educational professional."
+
+STYLE & SPEECH TUNING:
+- Keep answers short and speech-optimized (1-2 small conversational sentences max). 
+- Do not speak long paragraphs or monologues. 
+- Never use emojis, markdown syntax, symbols, brackets, or bullet points, as this text is read aloud by TTS.
+"""
 
 
 class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(instructions=SYSTEM_PROMPT)
-
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
 
 
 server = AgentServer()
@@ -59,59 +60,28 @@ server.setup_fnc = prewarm
 
 @server.rtc_session(agent_name="my-agent")
 async def my_agent(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
+
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
+    # 🔄 Replaced with your customized multilingual session configuration
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
+        stt=deepgram.STT(model="nova-3", language="multi"), # <- Detects non-english transcripts seamlessly
         llm=google.LLM(
-                model="gemini-3.5-flash-lite",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+            model="gemini-3.5-flash-lite",
+        ),
         tts=murf.TTS(
-                voice="Anisha", 
-                locale="en-IN",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
-            ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            voice="Anisha", # Indian Locale Voice Key fixed as requested
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
+            text_pacing=True
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
         agent=Assistant(),
         room=ctx.room,
@@ -127,9 +97,13 @@ async def my_agent(ctx: JobContext):
         ),
     )
 
-    # Join the room and connect to the user
     await ctx.connect()
 
+    # Day 2 First-Turn Greeting (Structured introducing name and role)
+    await session.say(
+        "Hello Naman! I am Shiksha, your learning partner. I can help you with fun math puzzles or science questions or you want to hear a cool fact. What would you like to learn today?", 
+        allow_interruptions=True
+    )
 
 if __name__ == "__main__":
     cli.run_app(server)
