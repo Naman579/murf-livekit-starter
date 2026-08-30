@@ -30,7 +30,14 @@ from livekit.plugins import (
     noise_cancellation,
 )
 
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+# FIX: Removed MultilingualModel (turn_detector) import. This ML model
+# consumes significant RAM (~500MB-1GB) when loading, which was crashing
+# the container on Railway's free-tier 1GB memory limit (the inference
+# subprocess was getting OOM-killed with no error message, just a
+# "DuplexClosed" IPC failure). Removing it and relying on VAD-only turn
+# detection uses much less memory. Turn detection will be slightly less
+# accurate for multi-turn/multilingual pauses, but the agent will run
+# reliably within the free tier's memory limit.
 
 
 # ============================================================
@@ -697,8 +704,8 @@ class MathsSpecialistAgent(Agent):
             instructions=MATH_SPECIALIST_PROMPT,
             chat_ctx=chat_ctx,
             tts=murf.TTS(
-                voice="Anusha",
-                style="Conversational",
+                voice="en-IN-alia",
+                style="Conversation",
                 tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
                 text_pacing=True,
             ),
@@ -827,7 +834,7 @@ async def my_agent(ctx: JobContext):
             tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
             text_pacing=True,
         ),
-        turn_detection=MultilingualModel(),
+        turn_detection="vad",
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
