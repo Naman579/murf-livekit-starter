@@ -9,6 +9,15 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-bookworm-slim AS base
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
+# FIX: Set HOME to /app so that any cache directories created during build
+# (e.g. model files downloaded by "download-files", which default to
+# ~/.cache under the current user's home) land inside /app instead of
+# /root's home directory. Since the production stage only copies /app
+# from the build stage, anything cached outside /app (like /root/.cache)
+# was being silently lost, causing "Could not find file" errors at runtime
+# even though the download step succeeded during build.
+ENV HOME=/app
+
 # --- Build stage ---
 # Install dependencies, build native extensions, and prepare the application
 FROM base AS build
