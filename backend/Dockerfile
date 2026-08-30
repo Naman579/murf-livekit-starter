@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1
-
 # Use the official UV Python base image with Python 3.13 on Debian Bookworm
 # UV is a fast Python package manager that provides better performance than pip
 # We use the slim variant to keep the image size smaller while still having essential tools
@@ -52,6 +51,14 @@ RUN uv run "src/agent.py" download-files
 # --- Production stage ---
 # Build tools (gcc, g++, python3-dev) are not included in the final image
 FROM base
+
+# FIX: WORKDIR was missing here. The build stage set WORKDIR /app, but each
+# Docker stage starts fresh — this production stage begins again from "base",
+# which has no WORKDIR set, so the container's default cwd was "/" instead of
+# "/app". Since the app files are copied into /app below, the CMD's relative
+# path "src/agent.py" was being resolved against "/" instead of "/app",
+# causing "No such file or directory" at runtime even though the file exists.
+WORKDIR /app
 
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/build/building/best-practices/#user
