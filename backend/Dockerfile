@@ -75,6 +75,14 @@ RUN adduser \
 # This avoids expensive recursive chown and excludes build tools from the final image
 COPY --from=build --chown=appuser:appuser /app /app
 
+# FIX: WORKDIR /app was created earlier while still root, so the top-level
+# /app directory itself was still owned by root even after the COPY --chown
+# above (that only re-owns the copied file contents, not the pre-existing
+# parent directory). This left appuser without write access to /app itself,
+# so uv couldn't create its cache folder at /app/.cache/uv at runtime.
+# Also pre-create the cache dir so it exists with correct ownership.
+RUN mkdir -p /app/.cache/uv && chown -R appuser:appuser /app
+
 # Switch to the non-privileged user for all subsequent operations
 # This improves security by not running as root
 USER appuser
