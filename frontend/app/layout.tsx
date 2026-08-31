@@ -60,9 +60,13 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       )}
     >
       <head>
-        {styles && <style>{styles}</style>}
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
+        <head>
+  {styles && <style>{styles}</style>}
+  <title>{pageTitle}</title>
+  <meta name="description" content={pageDescription} />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#000000" />
+</head>
       </head>
       <body className="overflow-x-hidden">
         <ThemeProvider
