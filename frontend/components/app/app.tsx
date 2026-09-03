@@ -26,17 +26,27 @@ interface AppProps {
   appConfig: AppConfig;
 }
 
-// Sub-component to monitor connection states and handle device permissions
 function MainContent({ appConfig }: { appConfig: AppConfig }) {
   const connectionState = useConnectionState();
   const [micPermissionDenied, setMicPermissionDenied] = useState(false);
+  
+  // 🌟 Streak Data State & Modal Toggle State
+  const [showStreakModal, setShowStreakModal] = useState(false);
+  const [streakData] = useState({
+    count: 5,
+    startDate: '30 Aug 2026',
+    todayDate: new Date().toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    })
+  });
 
-  // 🛡️ Step 4: Handle microphone permission errors
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        // Microphone enabled properly, close the stream tracks
         stream.getTracks().forEach((track) => track.stop());
         setMicPermissionDenied(false);
       })
@@ -47,8 +57,6 @@ function MainContent({ appConfig }: { appConfig: AppConfig }) {
       });
   }, []);
 
-  // Show clear error block screen if microphone access is blocked by the user
-  // Show clear error block screen if microphone access is blocked by the user
   if (micPermissionDenied) {
     return (
       <main className="fixed inset-0 z-50 flex items-center justify-center bg-red-50 p-6">
@@ -77,7 +85,6 @@ function MainContent({ appConfig }: { appConfig: AppConfig }) {
     );
   }
 
-  // 🕒 Step 2: Connecting State UI Layer
   if (connectionState === ConnectionState.Connecting) {
     return (
       <main className="grid h-svh grid-cols-1 place-content-center bg-background text-center p-6">
@@ -95,7 +102,59 @@ function MainContent({ appConfig }: { appConfig: AppConfig }) {
   }
 
   return (
-    <main className="grid h-svh grid-cols-1 place-content-center">
+    <main className="relative grid h-svh grid-cols-1 place-content-center">
+      {/* 🔥 Vector Animated Fire Button */}
+      {connectionState === ConnectionState.Connected && (
+        <div className="fixed top-16 right-8 z-50">
+          <button
+            onClick={() => setShowStreakModal(!showStreakModal)}
+            className="p-1.5 rounded-2xl bg-orange-950/30 border border-orange-500/30 backdrop-blur-md hover:scale-110 active:scale-95 transition-all duration-200 shadow-lg shadow-orange-950/40 cursor-pointer flex items-center justify-center"
+            title="Click to view Streak details"
+          >
+            {/* 🖼️ Custom Fire Animated Image/GIF */}
+            <img 
+              src="/fire-streak.gif" 
+              alt="Fire Streak" 
+              className="w-8 h-8 object-contain filter drop-shadow-[0_0_10px_rgba(249,115,22,0.8)] select-none pointer-events-none" 
+            />
+          </button>
+
+          {/* 📊 Streak Details Popover Card */}
+          {showStreakModal && (
+            <div className="absolute right-0 mt-3 w-64 p-4 rounded-2xl bg-zinc-900/95 border border-zinc-800 backdrop-blur-xl shadow-2xl text-white space-y-3 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <img src="/fire-streak.gif" alt="Fire" className="w-5 h-5 object-contain" />
+                  <span className="font-bold text-sm text-orange-400">Daily Streak</span>
+                </div>
+                <button 
+                  onClick={() => setShowStreakModal(false)}
+                  className="text-zinc-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded-md hover:bg-zinc-800"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="text-center py-2 bg-orange-950/30 rounded-xl border border-orange-500/20">
+                <p className="text-3xl font-extrabold text-orange-400">{streakData.count}</p>
+                <p className="text-[11px] font-medium text-orange-200/80 uppercase tracking-wider">Days Active Streak</p>
+              </div>
+
+              <div className="space-y-1.5 text-xs text-zinc-300">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Today:</span>
+                  <span className="font-semibold text-zinc-200">{streakData.todayDate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">Streak Started:</span>
+                  <span className="font-semibold text-zinc-200">{streakData.startDate}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <ViewController appConfig={appConfig} />
     </main>
   );
